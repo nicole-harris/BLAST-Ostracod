@@ -1,0 +1,77 @@
+import subprocess # For running external programs like tblastx
+import datetime   # For timestamping output filenames
+import shutil     # (Imported but unused here — used for copying files if needed)
+import os         # For interacting with the filesystem
+
+# ==========================
+# RUN tblastx
+# ==========================
+def run_blast_query(blasttyp, QUERY_FILE, DB_FILE, OUTPUT_FILE, EVALUE, OUTFMT):
+# Construct tblastx command as a list of arguments
+    blast_cmd = [
+        "tblastx",             # BLAST tool to run (translates nucleotide query vs. nucleotide db)
+        "-query", QUERY_FILE,  # Your transcriptome FASTA file
+        "-db", DB_FILE,        # Database to search against
+        "-out", OUTPUT_FILE,   # Where to save the results
+        "-evalue", EVALUE,     # E-value threshold
+        "-outfmt", OUTFMT      # Output format (e.g., tabular format)
+    ]
+
+    print("Running tblastx...")
+
+
+    # Run the tblastx command
+    result = subprocess.run(blast_cmd, capture_output=True, text=True)
+
+    # If there's an error, print it
+    if result.stderr:
+        print("Error running tblastx:", result.stderr)
+    else:
+        print("tblastx search completed successfully!")
+        print(f"Results saved in: {OUTPUT_FILE}")
+
+    # ==========================
+
+    if os.path.exists(OUTPUT_FILE):
+        with open(OUTPUT_FILE, "r") as f:
+            lines = f.readlines()
+            print("\n=== Preview of Results ===")
+            print("".join(lines[:10]))  # Print first 10 lines of results
+    else:
+        print("Error: No output file found. Check if tblastx ran correctly.")
+
+    # ==========================
+    # PRINT PREVIEW OF RESULTS
+
+def main():
+    # ==========================
+    # USER SETTINGS (EDIT THESE)
+    # ==========================
+    QUERY_FILE_name = './opsin/prot'                          # Your input transcriptome file
+    DB_FILE = "./transcriptomes/your_transcriptomes.fasta"    # Folder containing your gene DBs
+    job_name = 'transx'                                       # Prefix for output files
+    results_folder = 'results/example_transcriptome_blast_results'
+    if not os.path.isdir(results_folder):
+        os.makedirs(results_folder, exist_ok=True)
+
+    # tblastx parameters
+    EVALUE = "1e-5"       # Expect value threshold
+    OUTFMT = "6"          # Output format 6 = tabular (no comment lines)
+    blasttyp = 'tblastx'  # The type of BLAST to run
+
+    for QUERY_FILE in os.listdir(QUERY_FILE_name):
+        if QUERY_FILE.endswith('.fasta'):
+            # Output file
+            query_name = QUERY_FILE.split('.')[0]  # Strip ".fasta" for cleaner name
+            time_stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            OUTPUT_FILE = f"./{results_folder}/{job_name}_{blasttyp}_{query_name}_{time_stamp}.txt"
+            run_blast_query(blasttyp, QUERY_FILE, DB_FILE, OUTPUT_FILE, EVALUE, OUTFMT)
+
+
+if __name__ == '__main__':
+    main()
+
+
+
+
+
