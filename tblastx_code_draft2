@@ -1,15 +1,14 @@
-import subprocess # For running external programs like tblastx
-import datetime   # For timestamping output filenames
-import shutil     # (Imported but unused here — used for copying files if needed)
-import os         # For interacting with the filesystem
+import subprocess  # For running external programs like tblastx
+import datetime    # For timestamping output filenames
+import os          # For interacting with the filesystem
 
 # ==========================
 # RUN tblastx
 # ==========================
 def run_blast_query(blasttyp, QUERY_FILE, DB_FILE, OUTPUT_FILE, EVALUE, OUTFMT):
-# Construct tblastx command as a list of arguments
+    # Construct tblastx command as a list of arguments
     blast_cmd = [
-        "tblastx",             # BLAST tool to run (translates nucleotide query vs. nucleotide db)
+        blasttyp,             # BLAST tool to run
         "-query", QUERY_FILE,  # Your transcriptome FASTA file
         "-db", DB_FILE,        # Database to search against
         "-out", OUTPUT_FILE,   # Where to save the results
@@ -18,60 +17,76 @@ def run_blast_query(blasttyp, QUERY_FILE, DB_FILE, OUTPUT_FILE, EVALUE, OUTFMT):
     ]
 
     print("Running tblastx...")
-
-
-    # Run the tblastx command
     result = subprocess.run(blast_cmd, capture_output=True, text=True)
 
-    # If there's an error, print it
     if result.stderr:
         print("Error running tblastx:", result.stderr)
     else:
         print("tblastx search completed successfully!")
         print(f"Results saved in: {OUTPUT_FILE}")
 
-    # ==========================
-
     if os.path.exists(OUTPUT_FILE):
         with open(OUTPUT_FILE, "r") as f:
             lines = f.readlines()
             print("\n=== Preview of Results ===")
-            print("".join(lines[:10]))  # Print first 10 lines of results
+            print("".join(lines[:10]))
     else:
         print("Error: No output file found. Check if tblastx ran correctly.")
 
-    # ==========================
-    # PRINT PREVIEW OF RESULTS
+# ==========================
+# FORMAT BLAST DATABASE
+# ==========================
+def format_blast_db(db_file):
+    print(f"Formatting BLAST DB for: {db_file}")
+    result = subprocess.run([
+        "makeblastdb",
+        "-in", db_file,
+        "-dbtype", "nucl"
+    ], capture_output=True, text=True)
 
+    if result.stderr:
+        print("makeblastdb error:", result.stderr)
+    else:
+        print("Database formatted successfully.")
+
+# ==========================
+# MAIN
+# ==========================
 def main():
-    # ==========================
-    # USER SETTINGS (EDIT THESE)
-    # ==========================
-    QUERY_FILE_name = './opsin/prot'                          # Your input transcriptome file
-    DB_FILE = "./transcriptomes/your_transcriptomes.fasta"    # Folder containing your gene DBs
-    job_name = 'transx'                                       # Prefix for output files
-    results_folder = 'results/example_transcriptome_blast_results'
+    # User settings
+    DB_folder = '/home/local/ADS/nicoleharris/labdata/users/McKinley/Nicole_Harris/opsin'
+    QUERY_folder = "/home/local/ADS/nicoleharris/labdata/ostracod_seqData/nuc"
+    job_name = 'transx'
+    results_folder = '/home/local/ADS/nicoleharris/labdata/users/McKinley/Nicole_Harris/results'
+
     if not os.path.isdir(results_folder):
         os.makedirs(results_folder, exist_ok=True)
 
     # tblastx parameters
-    EVALUE = "1e-5"       # Expect value threshold
-    OUTFMT = "6"          # Output format 6 = tabular (no comment lines)
-    blasttyp = 'tblastx'  # The type of BLAST to run
+    evalue = "1e-5"
+    outfmt = "6"
+    blasttyp = 'tblastx'
 
-    for QUERY_FILE in os.listdir(QUERY_FILE_name):
-        if QUERY_FILE.endswith('.fasta'):
-            # Output file
-            query_name = QUERY_FILE.split('.')[0]  # Strip ".fasta" for cleaner name
-            time_stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            OUTPUT_FILE = f"./{results_folder}/{job_name}_{blasttyp}_{query_name}_{time_stamp}.txt"
-            run_blast_query(blasttyp, QUERY_FILE, DB_FILE, OUTPUT_FILE, EVALUE, OUTFMT)
+    print("Checking DB folder:", DB_folder)
+    print("Checking QUERY folder:", QUERY_folder)
 
+    for db in os.listdir(DB_folder):
+        if db.endswith('.fasta'):
+            print("Found DB file:", db)
+            for query in os.listdir(QUERY_folder):
+                if query.endswith('.fasta'):
+                    print("Found QUERY file:", query)
+
+                    query_path = os.path.join(QUERY_folder, query)
+                    db_path = os.path.join(DB_folder, db)
+                    format_blast_db(db_path)
+
+
+                    query_name = os.path.splitext(query)[0]
+                    time_stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                    output_file = os.path.join(results_folder, f"{job_name}_{blasttyp}_{query_name}_{time_stamp}.txt")
+
+                    run_blast_query(blasttyp, query_path, db_path.replace('.fasta', ''), output_file, evalue, outfmt)
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
